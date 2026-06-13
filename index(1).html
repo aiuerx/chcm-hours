@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>CHCM — Weekly Hours</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg: #F5F3EE; --surface: #FFFFFF; --border: #E0DDD6; --text: #1A1917; --muted: #7A786F; --accent: #1A1917; --ot: #2D6A4F; --ot-bg: #D8F3DC; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 1.5rem 1rem 5rem; -webkit-tap-highlight-color: transparent; }
+  header { max-width: 480px; margin: 0 auto 1.5rem; display: flex; justify-content: space-between; align-items: flex-end; }
+  .logo { font-family: 'DM Mono', monospace; font-size: 13px; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; }
+  .week-picker { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .week-picker input { font-family: 'DM Mono', monospace; font-size: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 5px 8px; border-radius: 6px; outline: none; }
+  main { max-width: 480px; margin: 0 auto; }
+  .days { display: flex; flex-direction: column; gap: 6px; margin-bottom: 1.5rem; }
+
+  .day-row { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .day-row.off { background: transparent; border-style: dashed; opacity: 0.55; }
+
+  .day-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; }
+  .day-name { font-size: 13px; font-weight: 500; }
+  .day-row.off .day-name { color: var(--muted); }
+  .day-hrs { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: var(--muted); }
+  .day-hrs.active { color: var(--text); }
+  .day-hrs.ot-day { color: var(--ot); }
+
+  .day-times { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .day-times.hidden { display: none; }
+
+  .time-field { display: flex; flex-direction: column; gap: 3px; }
+  .time-field label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+  .time-field input[type="time"] { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; border: 1px solid var(--border); background: var(--bg); color: var(--text); padding: 6px 8px; border-radius: 6px; outline: none; width: 100%; }
+  .time-field input[type="time"]:focus { border-color: var(--accent); background: var(--surface); }
+
+  .toggle-wrap { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .toggle-wrap label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.05em; cursor: pointer; user-select: none; }
+  input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+
+  .summary { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 1.5rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .stat.ot-stat { background: var(--ot-bg); border-color: #95D5B2; }
+  .stat-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .ot-stat .stat-label { color: var(--ot); opacity: 0.8; }
+  .stat-value { font-size: 20px; font-weight: 300; color: var(--text); letter-spacing: -0.02em; }
+  .ot-stat .stat-value { color: var(--ot); font-weight: 500; }
+
+  .notes-wrap { margin-bottom: 1rem; }
+  .notes-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: block; }
+  textarea { width: 100%; font-family: 'DM Sans', sans-serif; font-size: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 10px 12px; border-radius: 10px; resize: vertical; outline: none; line-height: 1.5; }
+
+  .save-indicator { text-align: center; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.06em; margin-bottom: 1rem; opacity: 0; transition: opacity 0.3s; }
+  .save-indicator.show { opacity: 1; }
+
+  .actions { display: flex; gap: 8px; }
+  button { flex: 1; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; padding: 15px; border-radius: 10px; border: 1px solid var(--border); cursor: pointer; transition: all 0.15s; outline: none; }
+  .btn-copy { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-copy:active { opacity: 0.8; transform: scale(0.98); }
+  .btn-reset { background: transparent; color: var(--muted); max-width: 100px; }
+  .btn-reset:active { background: var(--surface); }
+
+  .toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text); color: #fff; font-size: 13px; padding: 10px 20px; border-radius: 100px; opacity: 0; transition: all 0.2s; pointer-events: none; white-space: nowrap; z-index: 99; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">CHCM — Hours</div>
+  <div class="week-picker">
+    <span>Week of</span>
+    <input type="date" id="week-date" onchange="saveState()" />
+  </div>
+</header>
+<main>
+  <div class="days" id="days-grid"></div>
+  <div class="summary">
+    <div class="stat"><div class="stat-label">Regular</div><div class="stat-value" id="reg-val">0.0</div></div>
+    <div class="stat ot-stat"><div class="stat-label">Overtime</div><div class="stat-value" id="ot-val">0.0</div></div>
+    <div class="stat"><div class="stat-label">Est. gross</div><div class="stat-value" id="gross-val">$0</div></div>
+  </div>
+  <div class="notes-wrap">
+    <span class="notes-label">Notes</span>
+    <textarea id="notes" rows="2" placeholder="e.g. covered for Sweetu on Monday" oninput="saveState()"></textarea>
+  </div>
+  <div class="save-indicator" id="save-ind">saved</div>
+  <div class="actions">
+    <button class="btn-copy" onclick="copySheet()">Copy to send</button>
+    <button class="btn-reset" onclick="resetWeek()">Reset</button>
+  </div>
+</main>
+<div class="toast" id="toast">Copied to clipboard</div>
+
+<script>
+const DAYS = [
+  { name: 'Monday',    defIn: '11:00', defOut: '19:00', defaultOff: false },
+  { name: 'Tuesday',   defIn: '11:00', defOut: '19:00', defaultOff: true  },
+  { name: 'Wednesday', defIn: '11:00', defOut: '19:00', defaultOff: false },
+  { name: 'Thursday',  defIn: '11:00', defOut: '19:00', defaultOff: true  },
+  { name: 'Friday',    defIn: '11:00', defOut: '19:00', defaultOff: false },
+  { name: 'Saturday',  defIn: '12:00', defOut: '19:00', defaultOff: false },
+  { name: 'Sunday',    defIn: '12:00', defOut: '19:00', defaultOff: false },
+];
+const RATE = 45;
+const STORAGE_KEY = 'chcm_timesheet_v2';
+
+function calcHours(i, o) {
+  function toMins(t) { if (!t) return null; const [h,m]=t.split(':').map(Number); return h*60+m; }
+  const a=toMins(i), b=toMins(o);
+  if (a===null||b===null||b<=a) return 0;
+  return Math.round((b-a)/6) / 10;
+}
+
+function getMondayStr() {
+  const today = new Date();
+  const dow = today.getDay();
+  const diff = (dow===0) ? -6 : 1-dow;
+  const mon = new Date(today);
+  mon.setDate(today.getDate()+diff);
+  return mon.toISOString().split('T')[0];
+}
+
+function buildGrid(state) {
+  const grid = document.getElementById('days-grid');
+  grid.innerHTML = '';
+  DAYS.forEach((d, idx) => {
+    const saved = state && state.days && state.days[idx];
+    const isOff = saved ? saved.off : d.defaultOff;
+    const inVal = saved && saved.in ? saved.in : (isOff ? '' : d.defIn);
+    const outVal = saved && saved.out ? saved.out : (isOff ? '' : d.defOut);
+
+    const row = document.createElement('div');
+    row.className = 'day-row' + (isOff ? ' off' : '');
+    row.id = 'row-' + idx;
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'day-header';
+    header.innerHTML = '<div class="day-name">' + d.name + '</div><div class="day-hrs" id="hrs-' + idx + '">—</div>';
+    row.appendChild(header);
+
+    // Time inputs
+    const times = document.createElement('div');
+    times.className = 'day-times' + (isOff ? ' hidden' : '');
+    times.id = 'times-' + idx;
+    times.innerHTML =
+      '<div class="time-field"><label>In</label><input type="time" id="in-' + idx + '" value="' + inVal + '" oninput="update();saveState()" /></div>' +
+      '<div class="time-field"><label>Out</label><input type="time" id="out-' + idx + '" value="' + outVal + '" oninput="update();saveState()" /></div>';
+    row.appendChild(times);
+
+    // Toggle
+    const toggle = document.createElement('div');
+    toggle.className = 'toggle-wrap';
+    toggle.innerHTML =
+      '<input type="checkbox" id="chk-' + idx + '"' + (isOff ? '' : ' checked') + ' onchange="toggleDay(' + idx + ')" />' +
+      '<label for="chk-' + idx + '">' + (isOff ? 'tap to mark as working' : 'working') + '</label>';
+    row.appendChild(toggle);
+
+    grid.appendChild(row);
+  });
+}
+
+function toggleDay(idx) {
+  const chk = document.getElementById('chk-' + idx);
+  const row = document.getElementById('row-' + idx);
+  const times = document.getElementById('times-' + idx);
+  const lbl = chk.nextElementSibling;
+  const working = chk.checked;
+
+  row.classList.toggle('off', !working);
+  times.classList.toggle('hidden', !working);
+  lbl.textContent = working ? 'working' : 'tap to mark as working';
+
+  const inEl = document.getElementById('in-' + idx);
+  const outEl = document.getElementById('out-' + idx);
+  if (!working) {
+    inEl.value = '';
+    outEl.value = '';
+  } else if (!inEl.value) {
+    inEl.value = DAYS[idx].defIn;
+    outEl.value = DAYS[idx].defOut;
+  }
+  update();
+  saveState();
+}
+
+function update() {
+  let totalMins = 0;
+  DAYS.forEach((d, idx) => {
+    const chk = document.getElementById('chk-' + idx);
+    const hrsEl = document.getElementById('hrs-' + idx);
+    if (!chk || !chk.checked) { hrsEl.textContent = '—'; hrsEl.className = 'day-hrs'; return; }
+    const inEl = document.getElementById('in-' + idx);
+    const outEl = document.getElementById('out-' + idx);
+    if (!inEl || !outEl) return;
+    function toMins(t) { if (!t) return null; const [h,m]=t.split(':').map(Number); return h*60+m; }
+    const a = toMins(inEl.value), b = toMins(outEl.value);
+    const mins = (a!==null && b!==null && b>a) ? b-a : 0;
+    totalMins += mins;
+    const h = Math.round(mins/6)/10;
+    hrsEl.textContent = h > 0 ? h.toFixed(1)+'h' : '—';
+    hrsEl.className = 'day-hrs' + (h > 0 ? ' active' : '');
+  });
+
+  const regMins = Math.min(totalMins, 2400);
+  const otMins = Math.max(totalMins - 2400, 0);
+  const reg = Math.round(regMins/6)/10;
+  const ot = Math.round(otMins/6)/10;
+  const gross = (regMins/60)*RATE + (otMins/60)*RATE*1.5;
+
+  document.getElementById('reg-val').textContent = reg.toFixed(1);
+  document.getElementById('ot-val').textContent = ot.toFixed(1);
+  document.getElementById('gross-val').textContent = '$'+Math.round(gross).toLocaleString();
+
+  DAYS.forEach((d, idx) => {
+    const hrsEl = document.getElementById('hrs-' + idx);
+    if (!hrsEl) return;
+    if (ot > 0) hrsEl.classList.add('ot-day');
+    else hrsEl.classList.remove('ot-day');
+  });
+}
+
+function saveState() {
+  const days = DAYS.map((d, idx) => {
+    const chk = document.getElementById('chk-' + idx);
+    const inEl = document.getElementById('in-' + idx);
+    const outEl = document.getElementById('out-' + idx);
+    return {
+      off: chk ? !chk.checked : d.defaultOff,
+      in: inEl ? inEl.value : '',
+      out: outEl ? outEl.value : ''
+    };
+  });
+  const state = {
+    weekDate: document.getElementById('week-date').value,
+    notes: document.getElementById('notes').value,
+    days
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    const ind = document.getElementById('save-ind');
+    ind.classList.add('show');
+    setTimeout(() => ind.classList.remove('show'), 1200);
+  } catch(e) {}
+}
+
+function loadState() {
+  try { const r=localStorage.getItem(STORAGE_KEY); return r?JSON.parse(r):null; } catch(e) { return null; }
+}
+
+function resetWeek() {
+  if (!confirm('Reset all hours for this week?')) return;
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+  document.getElementById('week-date').value = getMondayStr();
+  document.getElementById('notes').value = '';
+  buildGrid(null);
+  update();
+}
+
+function copySheet() {
+  const weekVal = document.getElementById('week-date').value;
+  const weekStr = weekVal ? new Date(weekVal+'T12:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '(week not set)';
+  let lines = ['CHCM — Weekly Hours', 'Week of: '+weekStr, ''];
+  DAYS.forEach((d, idx) => {
+    const chk = document.getElementById('chk-' + idx);
+    if (!chk || !chk.checked) { lines.push(d.name+': OFF'); return; }
+    const inV = document.getElementById('in-'+idx).value;
+    const outV = document.getElementById('out-'+idx).value;
+    function toMins(t) { if (!t) return null; const [h,m]=t.split(':').map(Number); return h*60+m; }
+    const a=toMins(inV), b=toMins(outV);
+    const mins = (a!==null&&b!==null&&b>a)?b-a:0;
+    const h = Math.round(mins/6)/10;
+    lines.push(d.name+': '+(inV||'—')+' – '+(outV||'—')+' ('+h.toFixed(1)+' hrs)');
+  });
+  lines.push('');
+  lines.push('Regular: '+document.getElementById('reg-val').textContent+' hrs | Overtime: '+document.getElementById('ot-val').textContent+' hrs | Est. gross: '+document.getElementById('gross-val').textContent);
+  const notes = document.getElementById('notes').value.trim();
+  if (notes) lines.push('Notes: '+notes);
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  });
+}
+
+// Init
+const state = loadState();
+document.getElementById('week-date').value = (state&&state.weekDate) ? state.weekDate : getMondayStr();
+if (state&&state.notes) document.getElementById('notes').value = state.notes;
+buildGrid(state);
+update();
+</script>
+</body>
+</html>
